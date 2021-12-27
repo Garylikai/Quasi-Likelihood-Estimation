@@ -1,0 +1,131 @@
+---
+title: "AMS 573 Project Group 6"
+author: "Group 6: Kai Li, Bridget Hyland, Vinny Yabor, Chad Gueli, Peng Fei Yao"
+date: "5/3/2021"
+output: html_document
+---
+
+````{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+crab <- read.table('C:/Users/vyabo/Desktop/AMS 573 Project/Crabs.dat',header=T)
+````
+
+## Section 4.7.2 Horseshoe Crab Example
+
+````{r}
+glm1 <- glm(sat~width,family = poisson(link='log'),data=crab)
+summary(glm1)$coefficients
+````
+The proportion of residual deviance to df should be 1 if there is no overdispersion.
+````{r}
+summary(glm1)$deviance/summary(glm1)$df.residual
+````
+Alternatively, if the model is of a poisson family, then we can use an R package to check for overdispersion automatically.
+````{r,include=FALSE}
+library(performance)
+````
+
+````{r}
+check_overdispersion(glm1)
+````
+Based on both the rule of thumb and the dispersion test, we can conclude that there is overdispersion. To allow for this, we have to calculate the Pearson $\chi^2$ statistic and use it to find $\phi$ which is the $\chi^2$ statistic divided by $N-p$. We multiply $\sqrt{\phi}$ by the SE to make a quasilikelihood adjustment on the SE.
+````{r}
+sa <- tapply(crab$sat,crab$width,sum)
+mu <- tapply(predict(glm1,type='response'),crab$width,sum)
+chi.square <- sum((sa-mu)^2/mu)
+phi <- chi.square/(66-2)
+SE.quasi <- sqrt(phi)*summary(glm1)$coefficients[2,2]
+chi.square
+phi
+SE.quasi
+````
+ 
+````{r}
+glm1.quasi <- glm(sat~width,family=quasipoisson(link='log'),data=crab)
+summary(glm1.quasi)$coefficients
+````
+The quasi model gives us a more accurate SE for width at $0.033$ as opposed to $0.02$ for the standard Poisson model. In addition, we can compare the confidence intervals between the models.
+````{r}
+confint(glm1)
+confint(glm1.quasi)
+````
+
+````{r,include=FALSE}
+CI.Length <- confint(glm1)[2,2]-confint(glm1)[2,1]
+CI.Length.quasi <- confint(glm1.quasi)[2,2]-confint(glm1.quasi)[2,1]
+````
+
+````{r}
+CI.Length
+CI.Length.quasi
+````
+The length for the CI in the quasilikelihood model is considerably wider than that for the standard model. Thus providing us with a more conservative interval.
+
+## Section 4.7.4 Teratology Example
+
+````{r,include=FALSE}
+library(VGAM)
+ter <- lirat
+ter$grp <- as.factor(ter$grp)
+````
+
+````{r}
+glm2 <- glm(R/N~grp-1,weights=N,data=ter,family='binomial')
+summary(glm2)$coefficients
+summary(glm2)$deviance/summary(glm2)$df.residual
+````
+As in the previous example, the proportion of residual deviance to degrees of freedom is much larger than $1$. Overdispersion is present in the model. Further, notice that the model does not directly output the correct standard errors. I needed to use the predicted proportions for each group from the original model and calculate those standard errors.
+````{r}
+pred <- unique(predict(glm2,type='response'))
+SE <- sqrt(pred*(1-pred)/tapply(ter$N,ter$grp,sum))
+X2 <- sum(resid(glm2,type='pearson')^2)
+phi <- X2/(58-4)
+pred
+SE
+X2
+phi
+````
+Pred gives us the sample proportions, 'SE' gives the standard errors of proportions, 'X2' gives the Pearson $\chi^2$ statistic, and 'phi' is $\frac{\chi^2}{N-p}$. Similar to the previous example, the standard errors for the quasi model of the proportions are found by multiplying the standard errors of proportions by $\sqrt{\phi}$. The standard errors are $0.02367$, $0.02782$, $0.02396$, and $0.02098$.
+````{r}
+SE*sqrt(phi)
+````
+
+````{r}
+glm2.quasi.1 <- glm(R/N~grp-1,weights=N,data=ter,family=quasibinomial)
+summary(glm2.quasi.1)$coefficients
+````
+Note that the standard errors for the logit link quasibinomial model do not match those in the textbook example. This is because we have to run the model with the identity link rather than the logit link. This example can be taken further by comparing the models by using a goodness of link test, but we will not cover this here.
+````{r}
+glm2.quasi <- glm(R/N~grp-1,weights=N,data=ter,family=quasibinomial(link='identity'),start=pred)
+summary(glm2.quasi)$coefficients
+````
+The standard errors for groups 1-4 are $0.04007$, $0.04710$, $0.04055$, and $0.03551$ in the quasibinomial model as opposed to $0.02367$, $0.02782$, $0.02396$, and $0.02098$ in the standard binomial model.
+````{r,include=FALSE}
+p1 <- sum(ter[ter$grp==1,]$R)/sum(ter[ter$grp==1,]$N)
+p2 <- sum(ter[ter$grp==2,]$R)/sum(ter[ter$grp==2,]$N)
+n1plus <- sum(ter[ter$grp==1,]$N)
+n2plus <- sum(ter[ter$grp==2,]$N)
+Wald_lower <- (p1-p2)-1.96*sqrt((p1*(1-p1))/n1plus+(p2*(1-p2))/n2plus)
+Wald_upper <- (p1-p2)+1.96*sqrt((p1*(1-p1))/n1plus+(p2*(1-p2))/n2plus)
+
+p1_quasi <- summary(glm2.quasi)$coefficients[1,1]
+p2_quasi <- summary(glm2.quasi)$coefficients[2,1]
+quasi_lower <- (p1_quasi-p2_quasi)-1.96*sqrt(phi)*sqrt((p1_quasi*(1-p1_quasi))/n1plus+(p2_quasi*(1-p2_quasi))/n2plus)
+quasi_upper <- (p1_quasi-p2_quasi)+1.96*sqrt(phi)*sqrt((p1_quasi*(1-p1_quasi))/n1plus+(p2_quasi*(1-p2_quasi))/n2plus)
+````
+Now I will compare the confidence intervals for the difference in proportions between groups 1 and 2.
+````{r}
+c(Wald_lower=Wald_lower,Wald_upper=Wald_upper)
+c(Quasi_lower=quasi_lower,Quasi_upper=quasi_upper)
+````
+
+````{r,include=FALSE}
+CI.Length <- Wald_upper-Wald_lower
+CI.Length.quasi <- quasi_upper-quasi_lower
+````
+
+````{r}
+CI.Length
+CI.Length.quasi
+````
+As in the last example, we have a more conservative confidence interval for the quasibinomial model when compared to the binomial model.

@@ -1,0 +1,363 @@
+\documentclass{beamer}
+\usepackage{beamerthemesplit} % custom appearance
+\usepackage{url, hyperref}	% for clickable e-mail, links
+\usepackage[normalem]{ulem}
+
+\usepackage{amsmath, amssymb, amsthm, enumerate, xcolor, bm}
+
+\theoremstyle{definition}
+\newcommand{\p}{\hat{\pi}}
+\newcommand{\logit}{\mathrm{logit}}
+\newcommand{\R}{\mathbb{R}}
+
+\usetheme{Madrid}
+\usecolortheme{beaver}
+\definecolor{darkred}{rgb}{0.757,0.071,0.184}
+\usepackage{multimedia}
+\addtobeamertemplate{frametitle}{\vskip2ex}{}
+\setbeamertemplate{itemize item}{\color{black}$\blacksquare$}
+\setbeamertemplate{itemize subitem}{\color{darkred}$\blacktriangleright$}
+\setbeamertemplate{itemize subsubitem}{\color{gray}$\blacksquare$}
+\setbeamertemplate{sections/subsections in toc}[sections numbered]
+\setbeamertemplate{frametitle}{\vspace{4mm}\vbox{\hsize=10cm\bfseries\strut\insertframetitle\strut}}
+\usebackgroundtemplate{\includegraphics[width=\paperwidth,height=\paperheight]{background}}
+
+\title{Quasi-likelihood Estimation}
+\author{Li, Hyland, Yabor, Gueli, Yao}
+
+\begin{document}
+<<setup, include=FALSE>>=
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE, results="hold")
+library(knitr)
+library(tidyverse)
+library(performance)
+
+crabs <- read_table("Crabs.dat")
+ter <- VGAM::lirat
+
+options(digits=3)
+@
+
+\begin{frame}
+
+    \titlepage
+\end{frame}
+
+\begin{frame}{Sections}
+    \tableofcontents
+\end{frame}
+
+\section{From Likelihood to Quasi-likelihood by Bridget Hyland}
+
+\begin{frame}{Notation}
+    As in the book:
+    \begin{itemize}
+    \item $Y\in\R^{n}$ is a random vector with independent components from
+    identical distributions in the natural exponential family.
+    \item $\bm{y}\in\R^{n}$ is the vector of realized values of $Y$ with
+        explanatory variables $X\in\R^{n\times p}$
+    \item $E[Y]=\bm{\mu}\in\R^n$
+    \item We assume that $Y$ is linked to $X$ by $g$ and linear systematic
+        component $\bm{\eta}=X\bm{\beta}\in\R^n$, where $\bm{\beta}\in\R^p$ is
+        the vector of coefficients.
+    \end{itemize}
+    Then the GLM is $g(\bm{\mu})=\bm{\eta}=X\bm{\beta}$.
+\end{frame}
+
+\begin{frame}{Back to Basics, Just ML}
+    To obtain maximum likelihood estimates:
+    \begin{enumerate}
+        \item Assume a specific distribution for $Y$
+        \item Use distribution to determine $\text{Var}(Y)\in\R^{n\times n}$
+            \begin{itemize}
+                \item $\text{Var}(Y)$ is a diagonal matrix with the
+                variance for the $i$th observation as the $i$th component
+            \end{itemize}
+        \item The ML estimate $\bm{\hat{\beta}}$ will satisfy
+            \begin{align}
+\bm{u}(\bm{\beta})=X^T\frac{\partial\bm{\mu}}
+                           {\partial\bm{\eta}}\text{Var}(Y)^{-1}(\bm{y}-\bm{\mu})
+                  =0.
+            \end{align}
+            \begin{itemize}
+                \item $\partial\bm{\mu}/\partial\bm{\eta}\in\R^{n\times n}$
+                    is the Jacobian of $\bm{\mu}$ with respect to $\bm{\eta}$,
+                    and is diagonal because $\partial\mu_i/\partial\eta_j=0$
+                    for $i\ne j$.
+                \item $\bm{u}$ is called the score function and is dependent on
+                    $\bm{\beta}$ through $\bm{\eta}$.
+            \end{itemize}
+        
+        \end{enumerate}
+\end{frame}
+
+\begin{frame}{From ML to QL}
+    \begin{itemize}
+        \item ML estimate depends on distribution only through mean and variance.
+        \item Instead, we can assume that there exists a distribution in the
+            exponential family with mean $\mu$ and variance $v(\mu)$. This is
+            quasi-likelihood estimation.
+        \item Under this assumption, the QL estimate is the ML estimate for the
+            unspecified distribution.
+    \end{itemize}
+\end{frame}
+
+\section{Derivation by Kai Li}
+
+\begin{frame}{Likelihood I}
+As before $Y_i$ are iid from an exponential dispersion distribution; i.e.
+\begin{align}
+f(y_i\mid \theta_i,\phi)
+    =\exp\left(\frac{y_i\theta_i-b(\theta_i)}{a(\phi)}+c(y_i,\phi)\right).
+\end{align}
+Denote
+\begin{align}
+L_i=\log f(y_i\mid \theta_i,\phi)
+    =\frac{y_i\theta_i-b(\theta_i)}{a(\phi)}+c(y_i,\phi),
+\end{align}
+and get
+\begin{align}
+\frac{\partial L_i}{\partial \theta_i}
+    &=\frac{y_i-b'(\theta_i)}{a(\phi)}  &
+\frac{\partial^2 L_i}{\partial \theta_i^2}
+    &=\frac{-b''(\theta_i)}{a(\phi)}.
+\end{align}
+\end{frame}
+
+\begin{frame}{Likelihood II}
+Fisher Information Theorem 1: For a pdf $f$ dependent on $\theta$,
+\begin{align}
+E\left(\frac{\partial \log f_\theta(x)}{\partial \theta}\right)
+    =\int\frac{\partial \log f_\theta(x)}{\partial \theta}f_\theta(x)\,dx
+    =0.
+\end{align}
+By this theorem,
+\begin{align}
+0=E\left(\frac{\partial L_i}{\partial \theta_i}\right)
+    = E\left(\frac{Y_i-b'(\theta_i)}{a(\phi)}\right)
+    =\frac{EY_i-b'(\theta_i)}{a(\phi)}
+    =\frac{\mu_i-b'(\theta_i)}{a(\phi)},
+\end{align}
+implying $\mu_i=b'(\theta_i)$ and
+\begin{align}
+\frac{\partial \mu_i}{\partial \theta_i}=b''(\theta_i).
+\end{align}
+\end{frame}
+
+\begin{frame}{Likelihood III}
+Fisher Information Theorem 2: For a pdf $f$ dependent on $\theta$,
+\begin{align}
+-E\left(\frac{\partial^2 \log f_\theta(x)}{\partial \theta^2}\right)
+    =E\left(\left[\frac{\partial \log f_\theta(x)}{\partial \theta}\right]^2\right).
+\end{align}
+Due to this theorem, and because $\mu_i=b'(\theta_i)$
+\begin{align}
+\frac{b''(\theta_i)}{a(\phi)}
+    &=-E\left(\frac{\partial^2 L_i}{\partial \theta_i^2}\right)
+    =E\left(\left[\frac{\partial L_i}{\partial \theta_i}\right]^2\right)\\
+    &=E\left(\left[\frac{Y_i-b'(\theta_i)}{a(\phi)}\right]^2\right)\\
+    &=\frac{E(Y_i-\mu_i)^2}{a(\phi)^2}
+    =\frac{\text{Var}(Y_i)}{a(\phi)^2},
+\end{align}
+therefore $b''(\theta_i)=\text{Var}(Y_i)/a(\phi)$.
+\end{frame}
+
+\begin{frame}{Likelihood IV}
+Put the preceding together to get
+\begin{align}
+\frac{\text{Var}(Y_i)}{a(\phi)}=b''(\theta_i)=\frac{\partial \mu_i}{\partial \theta_i}
+\end{align}
+or equivalently $\partial \theta_i/\partial \mu_i=\text{Var}(Y_i)/a(\phi)$.
+Then
+\begin{align}
+\mathcal{L}=\log\left(\prod_if(y_i\mid \theta_i,\phi)\right)=\sum_iL_i
+\end{align}
+gives
+\begin{align}
+\frac{\partial\mathcal{L}}{\partial\beta_j}
+=\sum_i\frac{\partial L_i}{\partial\beta_j}
+=\sum_i\frac{\partial L_i}{\partial\theta_i}
+       \frac{\partial \theta_i}{\partial\mu_i}
+       \frac{\partial \mu_i}{\partial\eta_i}
+       \frac{\partial\eta_i}{\partial\beta_j}
+=\sum_i\frac{Y_i-\mu_i}{\mathrm{Var}(Y_i)}\frac{\partial \mu_i}{\partial\eta_i}x_{ij}.
+\end{align}
+\end{frame}
+
+\begin{frame}{Quasi-score Function}
+    Noting that $\bm{\eta}=X\bm{\beta}$, we have
+    \begin{align}
+    X^T\frac{\partial\bm{\mu}}{\partial\bm{\eta}}
+        =\left(\left(\frac{\partial\bm{\mu}}{\partial\bm{\eta}}\right)^TX\right)^T
+        =\left(\frac{\partial\bm{\mu}}{\partial\bm{\eta}}X\right)^T
+        =\left(\frac{\partial\bm{\mu}}{\partial\bm{\eta}}
+               \frac{\partial\bm{\eta}}{\partial\bm{\beta}}\right)^T
+        =\left(\frac{\partial\bm{\mu}}{\partial\bm{\beta}}\right)^T.
+    \end{align}
+    Using this substitution and $\text{Var}(Y)=v(\bm{\mu})$ yields the quasi
+    score function
+    \begin{align}
+    \bm{u}(\bm{\beta})=\left(\frac{\partial\bm{\mu}}{\partial\bm{\beta}}\right)^T
+              v(\bm{\mu})^{-1}(\bm{y}-\bm{\mu}).              
+    \end{align}
+\end{frame}
+
+
+\section{Properties of the QL Estimator and Variance by Peng Fei Yao}
+
+\begin{frame}{QL Estimator Properties}
+    \begin{itemize}
+        \item The quasi-score function is an unbiased estimating function
+        \item If the mean and variance function are specified correctly, then
+            $\bm{\hat{\beta}}$ is
+            \begin{itemize}
+                \item asymptotically efficient among estimators that are locally
+                linear in $\bm{y}$
+            
+                \item asymptotically normal with variance
+                    \begin{align}
+    V= \left[\left(\frac{\partial\bm{\mu}}{\partial\bm{\beta}}\right)^T
+            v(\bm{\mu})^{-1}\frac{\partial\bm{\mu}}{\partial\bm{\beta}}\right]^{-1},
+                    \end{align}
+                    where $\partial\bm{\mu}/\partial\bm{\beta}$ is the Jacobian
+                    of $\bm{\mu}$ with respect to $\bm{\beta}$.
+            \end{itemize}
+        
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Variance Misspecification}
+    If the mean is specified correctly then
+    $\bm{\hat{\beta}}\overset{p}{\to}\bm{\beta}$ even if the variance is incorrect.
+\end{frame}
+
+\begin{frame}{Sandwich Covariance Adjustment}
+    For misspecified variance functions, the Sandwich Adjustment
+    \begin{align}
+    V\left[\left(\frac{\partial\bm{\mu}}{\partial\bm{\beta}}\right)^T
+            v(\bm{\mu})^{-1}\text{Var}(Y)v(\bm{\mu})^{-1}
+            \frac{\partial\bm{\mu}}{\partial\bm{\beta}}\right]V
+    \end{align}
+    may be used to approximate the true variance.
+    The Wald approximation with $\bm{\mu}=\bm{\hat{\mu}}$ and
+    $\widehat{\text{Var}}(Y)=\text{Diag}[\bm{y}-\bm{\hat{\mu}}]^2$ has been shown to be asymptotically accurate.
+    
+    Assuming $\text{Var}(Y)=v(\bm{\mu})$ gives
+    \begin{align}
+    V\left[\left(\frac{\partial\bm{\mu}}{\partial\bm{\beta}}\right)^T
+            v(\bm{\mu})^{-1}v(\bm{\mu})v(\bm{\mu})^{-1}
+            \frac{\partial\bm{\mu}}{\partial\bm{\beta}}\right]V
+    =VV^{-1}V=V
+    \end{align}
+\end{frame}
+
+
+\section{QL for Poisson and Binomial GLMs by Chad Gueli}
+
+
+\begin{frame}{Overdispersion in Poisson GLMs}
+    \begin{itemize}
+        \item For count data with unfixed margins, we can use quasi-likelihood
+            with $v(\bm{\mu})=\text{Diag}[\phi\bm{\mu}]$
+            \begin{itemize}
+                \item $\phi=1$ for regular Poisson distribution
+                \item $\phi>1$ for over-dispersed data
+            \end{itemize}
+        \item The estimated variance for $\bm{\hat{\beta}}$ is
+            \begin{align}
+\left[\left(\frac{\partial\bm{\mu}}{\partial\bm{\beta}}\right)^T
+    \text{Diag}[\phi\bm{\mu}]^{-1}\frac{\partial\bm{\mu}}{\partial\bm{\beta}}
+    \right]^{-1}
+    =\phi\left[\left(\frac{\partial\bm{\mu}}{\partial\bm{\beta}}\right)^T
+    \text{Diag}[\bm{\mu}]^{-1}\frac{\partial\bm{\mu}}{\partial\bm{\beta}}\right]^{-1}
+        \end{align}
+            which is $\phi$ times the variance of the coefficients for the
+            regular Poisson.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Estimating $\phi$}
+    Let $X^2$ be the Pearson Chi-squared statistic for the regular Poisson model,
+    and $X^2/\phi=\sum_i(y_i-\hat{\mu}_i)^2/\phi\hat{\mu}_i$ be the $X^2$ stat
+    for the generalized model.
+    
+    If one of the following two requirements holds
+    \begin{enumerate}
+        \item $X^2/\phi$ has an approximate $\chi^2$ distribution
+        \item $\bm{\mu}$ is approximately linear in $\bm{\beta}$ with
+            $v(\bm{\hat{\mu}})$ close to $v(\bm{\mu})$
+    \end{enumerate}
+    then $E(X^2/\phi)\approx n-p$, implying that $E(X^2/[n-p])\approx \phi$.
+    
+    \begin{align}
+    \hat{\phi}\approx X^2/(n-p)
+    \end{align}
+\end{frame}
+
+\begin{frame}{Overdispersion in Binomial GLMs}
+    Overdispersion in the binomial case works the same as in the Poisson case.
+    \begin{itemize}
+        \item $v(\pi_i)=\phi\pi_i(1-\pi_i)/n_i=\phi\text{Var}(Y_i)$
+        \item Estimate $\phi$ by $\hat{\phi}=X^2/(n-p)$
+        \item Estimate the variance of $\bm{\hat{\beta}}$ by multiplying the
+            variance of the standard model by $\hat{\phi}$
+    \end{itemize}
+    
+\end{frame}
+
+
+\section{Examples by Vinny Yabor}
+
+\begin{frame}[fragile]{Horse Shoe Crab Dispersion Test}
+<<HSC1>>=
+glm1 <- glm(sat ~ width, family=poisson, data=crabs)
+check_overdispersion(glm1)
+@
+The \texttt{check\_overdispersion} function from the \texttt{performance} package
+may be used to test for overdispersion.
+\end{frame}
+
+\begin{frame}[fragile]{Computing SE}
+<<HSC2>>=
+sa <- tapply(crabs$sat, crabs$width, sum)
+mu <- tapply(predict(glm1, type="response"),
+             crabs$width, sum)
+(chi_square <- sum((sa-mu)^2 / mu))
+(phi <- chi_square/(66-2))
+(SE_quasi <- sqrt(phi)*summary(glm1)$coefficients[2, 2])
+@
+\end{frame}
+
+\begin{frame}[fragile]{QL Poisson Regression}
+<<HSC3>>=
+glm1_quasi <- glm(sat ~ width, data=crabs,
+                  family=quasipoisson)
+
+confint(glm1)
+confint(glm1_quasi)
+@
+\end{frame}
+
+\begin{frame}[fragile]{Teratology Example}
+<<T1>>=
+glm2 <- glm(cbind(R, N-R) ~ -1+grp, data=ter,
+            family=binomial)
+
+(pred <- unique(predict(glm2, type="response")))
+(SE <- sqrt(pred*(1-pred)/tapply(ter$N, ter$grp, sum)))
+(phi <- sum(resid(glm2, type="pearson")^2)/(58-4))
+(SE_adj <- sqrt(phi)*SE)
+@
+\end{frame}
+
+\begin{frame}[fragile]{QL For Binomial Model}
+<<T2>>=
+glm2_quasi <- glm(cbind(R, N-R) ~ -1+grp, data=ter,
+                  family=quasibinomial)
+
+confint(glm2)
+confint(glm2_quasi)
+@
+\end{frame}
+
+\end{document}
